@@ -152,7 +152,16 @@ func reconciliationHandled(kubeClient client.Client, namespacedName types.Namesp
 			return false, err
 		}
 
-		return result.Status == kstatus.CurrentStatus, nil
+		// Fail fast for failed reconciliations instead of waiting for timeout.
+		// This matches the pattern in isObjectReady() from readiness.go.
+		switch result.Status {
+		case kstatus.CurrentStatus:
+			return true, nil
+		case kstatus.InProgressStatus:
+			return false, nil
+		default:
+			return false, fmt.Errorf(result.Message)
+		}
 	}
 }
 
